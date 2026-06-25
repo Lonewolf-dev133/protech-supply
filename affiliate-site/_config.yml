@@ -1,0 +1,5 @@
+# GitHub Pages — static site (no Jekyll processing)
+title: ProTech Supply
+description: Premium HVAC appliances & technical tools — curated, tested, reviewed
+include:
+  - .nojekyll

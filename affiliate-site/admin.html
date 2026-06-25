@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — ProTech Supply</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Inter", system-ui, sans-serif; }
+    .tab-active { background: #2563eb; color: #fff; }
+    .tab-inactive { background: #f1f5f9; color: #64748b; }
+    .tab-inactive:hover { background: #e2e8f0; }
+    input, textarea, select { transition: border-color 0.15s, box-shadow 0.15s; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    .toast { animation: slideUp 0.3s ease, fadeOut 0.3s ease 2.5s forwards; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeOut { to { opacity: 0; transform: translateY(-8px); } }
+    .card-drag { cursor: grab; }
+    .card-drag:active { cursor: grabbing; }
+    .review-item { transition: background 0.15s; }
+    .review-item:hover { background: #f8fafc; }
+    #toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999; display: flex; flex-direction: column; gap: 0.5rem; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+  <!-- ===== TOP BAR ===== -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold text-xs">PT</span>
+          <span class="font-semibold text-slate-700">ProTech Supply <span class="text-blue-600 font-medium">Admin</span></span>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="index.html" target="_blank" class="text-sm text-slate-500 hover:text-blue-600 transition-colors"><i class="fas fa-external-link-alt mr-1"></i>View Site</a>
+          <span id="status-dot" class="w-2 h-2 rounded-full bg-green-500" title="Data loaded from embedded source"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ===== HEADER ===== -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Product Manager</h1>
+        <p class="text-sm text-slate-500 mt-1">Edit products, update affiliate links, and manage reviews. Changes save to your browser. Export to publish.</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="addProduct()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
+          <i class="fas fa-plus"></i> New Product
+        </button>
+        <button onclick="exportData()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-800 text-white text-sm font-medium hover:bg-slate-700 transition-colors shadow-sm">
+          <i class="fas fa-download"></i> Export
+        </button>
+        <button onclick="togglePublishPanel()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
+          <i class="fas fa-cloud-upload-alt"></i> Publish
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== PUBLISH PANEL (collapsible) ===== -->
+    <div id="publish-panel" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-4 sm:p-5 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-emerald-800 text-sm flex items-center gap-2"><i class="fas fa-cloud-upload-alt"></i>Publish to GitHub</h3>
+        <button onclick="togglePublishPanel()" class="text-emerald-500 hover:text-emerald-700"><i class="fas fa-xmark"></i></button>
+      </div>
+      <p class="text-xs text-emerald-700 mb-3">One-click publish: commits your changes directly to the GitHub repository. Token is stored locally in your browser.</p>
+      <div class="grid sm:grid-cols-4 gap-3 mb-3">
+        <div>
+          <label class="block text-xs font-medium text-emerald-800 mb-1">GitHub Token</label>
+          <input id="gh-token" type="password" class="w-full px-3 py-2 rounded-lg border border-emerald-300 text-sm bg-white" placeholder="ghp_..." />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-emerald-800 mb-1">Owner</label>
+          <input id="gh-owner" class="w-full px-3 py-2 rounded-lg border border-emerald-300 text-sm bg-white" placeholder="your-username" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-emerald-800 mb-1">Repository</label>
+          <input id="gh-repo" class="w-full px-3 py-2 rounded-lg border border-emerald-300 text-sm bg-white" placeholder="your-repo" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-emerald-800 mb-1">Branch</label>
+          <input id="gh-branch" class="w-full px-3 py-2 rounded-lg border border-emerald-300 text-sm bg-white" placeholder="main" value="main" />
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="publishToGitHub()" id="publish-btn" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm">
+          <i class="fas fa-upload"></i> <span>Publish Now</span>
+        </button>
+        <span id="publish-status" class="text-xs text-emerald-600"></span>
+      </div>
+    </div>
+
+    <!-- ===== PRODUCT LIST ===== -->
+    <div id="product-list" class="space-y-4"></div>
+
+    <!-- ===== EMPTY STATE ===== -->
+    <div id="empty-state" class="hidden text-center py-20">
+      <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4"><i class="fas fa-box-open text-2xl text-slate-400"></i></div>
+      <h3 class="text-lg font-semibold text-slate-600">No products yet</h3>
+      <p class="text-sm text-slate-400 mt-1">Click "New Product" to add your first item.</p>
+    </div>
+  </div>
+
+  <!-- ===== TOAST CONTAINER ===== -->
+  <div id="toast-container"></div>
+
+  <!-- ===== MODAL: Edit Product ===== -->
+  <div id="edit-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="closeEditModal()"></div>
+    <div class="relative z-10 h-full flex items-start justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8">
+        <div class="flex items-center justify-between p-6 border-b border-slate-200">
+          <h2 id="edit-modal-title" class="text-lg font-bold text-slate-800">Edit Product</h2>
+          <button onclick="closeEditModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div id="edit-modal-body" class="p-6 space-y-5 max-h-[70vh] overflow-y-auto"></div>
+        <div class="flex items-center justify-end gap-3 p-6 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+          <button onclick="closeEditModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
+          <button onclick="saveEditProduct()" class="px-6 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"><i class="fas fa-check mr-1"></i>Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script>
+    // ============================================================
+    //  ADMIN APP — Full CRUD for products
+    //  Data is read from localStorage (fallback: from PRODUCTS in data.js)
+    // ============================================================
+
+    let products = [];
+    let editingId = null;
+
+    // ----- Toast -----
+    function toast(msg, type = "success") {
+      const c = document.getElementById("toast-container");
+      const el = document.createElement("div");
+      el.className = `toast px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 ${
+        type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
+      }`;
+      el.innerHTML = `<i class="fas fa-${type === "success" ? "check-circle" : "exclamation-circle"}"></i>${msg}`;
+      c.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    // ----- Load data: try localStorage first, else inline fallback -----
+    function loadData() {
+      const stored = localStorage.getItem("protech_products");
+      if (stored) {
+        try {
+          products = JSON.parse(stored);
+          document.getElementById("status-dot").classList.remove("bg-green-500");
+          document.getElementById("status-dot").classList.add("bg-yellow-500");
+          document.getElementById("status-dot").title = "Data loaded from localStorage";
+          return;
+        } catch (_) {}
+      }
+      // Fallback: use inline data from data.js
+      if (typeof PRODUCTS !== "undefined") {
+        products = JSON.parse(JSON.stringify(PRODUCTS));
+        document.getElementById("status-dot").classList.remove("bg-green-500");
+        document.getElementById("status-dot").classList.add("bg-blue-500");
+        document.getElementById("status-dot").title = "Data loaded from data.js (embedded)";
+      } else {
+        products = [];
+        document.getElementById("status-dot").classList.remove("bg-green-500");
+        document.getElementById("status-dot").classList.add("bg-red-500");
+        document.getElementById("status-dot").title = "No data source found";
+      }
+    }
+
+    // ----- Generate unique ID -----
+    function nextId() {
+      return products.length ? Math.max(...products.map(p => p.id)) + 1 : 1;
+    }
+
+    // ----- Render product list -----
+    function render() {
+      const list = document.getElementById("product-list");
+      const empty = document.getElementById("empty-state");
+
+      if (!products.length) {
+        list.innerHTML = "";
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+
+      list.innerHTML = products.map((p, idx) => `
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <div class="p-4 sm:p-5">
+            <div class="flex items-start gap-4">
+              <img src="${p.image || ''}" alt="${p.name}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border border-slate-100 shrink-0" onerror="this.src='https://placehold.co/80x80/e2e8f0/94a3b8?text=N/A'" />
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                  <h3 class="font-semibold text-slate-800 truncate">${p.name}</h3>
+                  ${p.badge ? `<span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium shrink-0">${p.badge}</span>` : ""}
+                  <span class="text-sm font-bold text-blue-700 shrink-0">${p.price || ""}</span>
+                </div>
+                <p class="text-sm text-slate-500 mt-1 truncate">${p.description || ""}</p>
+                <div class="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                  <span><i class="fas fa-star mr-1 ${p.reviews && p.reviews.length ? 'text-yellow-400' : ''}"></i>${p.reviews ? p.reviews.length : 0} reviews</span>
+                  <span><i class="fas fa-list mr-1"></i>${p.specs ? p.specs.length : 0} specs</span>
+                  ${p.affiliateLink ? `<span class="truncate max-w-[200px]"><i class="fas fa-link mr-1"></i>${p.affiliateLink}</span>` : ""}
+                </div>
+              </div>
+              <div class="flex flex-col gap-1.5 shrink-0">
+                <button onclick="openEditModal(${p.id})" class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors"><i class="fas fa-pen mr-1"></i>Edit</button>
+                <button onclick="duplicateProduct(${p.id})" class="px-3 py-1.5 rounded-lg bg-slate-50 text-slate-500 text-xs font-medium hover:bg-slate-100 transition-colors"><i class="fas fa-copy mr-1"></i>Copy</button>
+                <button onclick="deleteProduct(${p.id})" class="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors"><i class="fas fa-trash mr-1"></i>Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // ----- Add product -----
+    function addProduct() {
+      products.push({
+        id: nextId(),
+        name: "New Product",
+        tagline: "Product tagline",
+        price: "$0.00",
+        image: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=600&q=80",
+        description: "Short description here.",
+        longDescription: "Full description here. Edit this in the admin panel.",
+        specs: ["Spec 1", "Spec 2", "Spec 3"],
+        videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+        affiliateLink: "https://www.amazon.com/dp/",
+        badge: "New",
+        reviews: [{ author: "Reviewer", rating: 5, text: "Great product." }],
+      });
+      saveToLocal();
+      render();
+      toast("Product added");
+    }
+
+    // ----- Duplicate product -----
+    function duplicateProduct(id) {
+      const orig = products.find(p => p.id === id);
+      if (!orig) return;
+      const dup = JSON.parse(JSON.stringify(orig));
+      dup.id = nextId();
+      dup.name = orig.name + " (Copy)";
+      products.push(dup);
+      saveToLocal();
+      render();
+      toast("Product duplicated");
+    }
+
+    // ----- Delete product -----
+    function deleteProduct(id) {
+      if (!confirm("Delete this product?")) return;
+      products = products.filter(p => p.id !== id);
+      saveToLocal();
+      render();
+      toast("Product deleted");
+    }
+
+    // ----- Open edit modal -----
+    function openEditModal(id) {
+      const p = products.find(pr => pr.id === id);
+      if (!p) return;
+      editingId = id;
+      document.getElementById("edit-modal-title").textContent = `Edit: ${p.name}`;
+      const body = document.getElementById("edit-modal-body");
+      body.innerHTML = `
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Name</label>
+            <input id="ef-name" value="${esc(p.name)}" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Tagline</label>
+            <input id="ef-tagline" value="${esc(p.tagline || "")}" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Price</label>
+            <input id="ef-price" value="${esc(p.price || "")}" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Image URL</label>
+            <input id="ef-image" value="${esc(p.image || "")}" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Short Description</label>
+            <textarea id="ef-desc" rows="2" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">${esc(p.description || "")}</textarea>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Long Description</label>
+            <textarea id="ef-longdesc" rows="4" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">${esc(p.longDescription || "")}</textarea>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Video Embed URL (YouTube)</label>
+            <input id="ef-video" value="${esc(p.videoUrl || "")}" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Badge</label>
+            <input id="ef-badge" value="${esc(p.badge || "")}" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" placeholder="e.g. Best Seller" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Affiliate Link</label>
+            <input id="ef-affiliate" value="${esc(p.affiliateLink || "")}" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Specifications <span class="text-slate-400 font-normal normal-case">(one per line)</span></label>
+            <textarea id="ef-specs" rows="4" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono">${esc((p.specs || []).join("\n"))}</textarea>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Reviews</label>
+            <div id="ef-reviews" class="space-y-3">
+              ${(p.reviews || []).map((r, i) => `
+                <div class="review-item bg-slate-50 rounded-lg p-3 border border-slate-200">
+                  <div class="flex items-center gap-2 mb-2">
+                    <select data-rating="${i}" class="text-sm border border-slate-300 rounded px-2 py-1 w-20">
+                      ${[1,2,3,4,5].map(n => `<option value="${n}" ${n === r.rating ? "selected" : ""}>${n}★</option>`).join("")}
+                    </select>
+                    <input data-author="${i}" value="${esc(r.author || "")}" placeholder="Author" class="text-sm px-2 py-1 border border-slate-300 rounded flex-1" />
+                    <button onclick="removeReview(${p.id}, ${i})" class="text-red-400 hover:text-red-600 text-xs"><i class="fas fa-trash"></i></button>
+                  </div>
+                  <textarea data-text="${i}" rows="2" placeholder="Review text" class="w-full text-sm px-2 py-1 border border-slate-300 rounded">${esc(r.text || "")}</textarea>
+                </div>
+              `).join("")}
+            </div>
+            <button onclick="addReview(${p.id})" class="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"><i class="fas fa-plus mr-1"></i>Add Review</button>
+          </div>
+        </div>
+      `;
+      document.getElementById("edit-modal").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeEditModal() {
+      document.getElementById("edit-modal").classList.add("hidden");
+      document.body.style.overflow = "";
+      editingId = null;
+    }
+
+    // ----- Save edits -----
+    function saveEditProduct() {
+      const p = products.find(pr => pr.id === editingId);
+      if (!p) return;
+
+      const g = (id) => document.getElementById(id);
+      const val = (id) => g(id) ? g(id).value : "";
+
+      p.name = val("ef-name");
+      p.tagline = val("ef-tagline");
+      p.price = val("ef-price");
+      p.image = val("ef-image");
+      p.description = val("ef-desc");
+      p.longDescription = val("ef-longdesc");
+      p.videoUrl = val("ef-video");
+      p.badge = val("ef-badge");
+      p.affiliateLink = val("ef-affiliate");
+
+      // Specs
+      p.specs = val("ef-specs").split("\n").map(s => s.trim()).filter(Boolean);
+
+      // Reviews
+      const reviewEls = document.querySelectorAll("#ef-reviews > div");
+      p.reviews = Array.from(reviewEls).map(el => ({
+        rating: parseInt(el.querySelector("[data-rating]")?.value || "5"),
+        author: el.querySelector("[data-author]")?.value || "",
+        text: el.querySelector("[data-text]")?.value || "",
+      }));
+
+      saveToLocal();
+      render();
+      closeEditModal();
+      toast("Product saved");
+    }
+
+    function removeReview(productId, idx) {
+      const p = products.find(pr => pr.id === productId);
+      if (!p || !p.reviews) return;
+      p.reviews.splice(idx, 1);
+      openEditModal(productId);
+    }
+
+    function addReview(productId) {
+      const p = products.find(pr => pr.id === productId);
+      if (!p) return;
+      if (!p.reviews) p.reviews = [];
+      p.reviews.push({ author: "New Reviewer", rating: 5, text: "Review text here." });
+      openEditModal(productId);
+    }
+
+    // ----- Save to localStorage -----
+    function saveToLocal() {
+      localStorage.setItem("protech_products", JSON.stringify(products));
+      document.getElementById("status-dot").classList.remove("bg-blue-500", "bg-green-500");
+      document.getElementById("status-dot").classList.add("bg-yellow-500");
+      document.getElementById("status-dot").title = "Data saved to localStorage (unsaved for repo)";
+    }
+
+    // ----- Export data.js for repo -----
+    function exportData() {
+      const json = JSON.stringify(products, null, 2);
+      const code = `/**\n * PRODUCT DATA — Edit products via Admin Panel at admin.html\n * Auto-generated on ${new Date().toLocaleDateString()}\n */\nvar PRODUCTS = ${json};\n`;
+      const blob = new Blob([code], { type: "text/javascript;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "data.js";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast("data.js downloaded — replace js/data.js in your repo");
+    }
+
+    // ----- Toggle publish panel -----
+    function togglePublishPanel() {
+      const panel = document.getElementById("publish-panel");
+      panel.classList.toggle("hidden");
+      // Restore saved GitHub settings
+      if (!panel.classList.contains("hidden")) {
+        document.getElementById("gh-token").value = localStorage.getItem("protech_gh_token") || "";
+        document.getElementById("gh-owner").value = localStorage.getItem("protech_gh_owner") || "";
+        document.getElementById("gh-repo").value = localStorage.getItem("protech_gh_repo") || "";
+        document.getElementById("gh-branch").value = localStorage.getItem("protech_gh_branch") || "main";
+      }
+    }
+
+    // ----- Publish to GitHub via API (one-click commit) -----
+    async function publishToGitHub() {
+      const token = document.getElementById("gh-token").value.trim();
+      const owner = document.getElementById("gh-owner").value.trim();
+      const repo = document.getElementById("gh-repo").value.trim();
+      const branch = document.getElementById("gh-branch").value.trim() || "main";
+      const status = document.getElementById("publish-status");
+      const btn = document.getElementById("publish-btn");
+
+      if (!token || !owner || !repo) {
+        status.textContent = "Please fill in token, owner, and repository.";
+        status.className = "text-xs text-red-600";
+        return;
+      }
+
+      // Save to localStorage for next time
+      localStorage.setItem("protech_gh_token", token);
+      localStorage.setItem("protech_gh_owner", owner);
+      localStorage.setItem("protech_gh_repo", repo);
+      localStorage.setItem("protech_gh_branch", branch);
+
+      btn.disabled = true;
+      btn.querySelector("span").textContent = "Publishing...";
+      status.textContent = "Fetching current file...";
+      status.className = "text-xs text-emerald-600";
+
+      const path = "js/data.js";
+      const api = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      };
+
+      try {
+        // 1. Get current file SHA
+        const getRes = await fetch(api + "?ref=" + encodeURIComponent(branch), { headers });
+        let sha = null;
+        if (getRes.ok) {
+          const data = await getRes.json();
+          sha = data.sha;
+        } else if (getRes.status !== 404) {
+          const err = await getRes.json();
+          throw new Error(err.message || "Failed to fetch current file");
+        }
+
+        // 2. Build new file content (base64)
+        const json = JSON.stringify(products, null, 2);
+        const content = `/**\n * PRODUCT DATA — Auto-published from Admin Panel\n * ${new Date().toLocaleString()}\n */\nvar PRODUCTS = ${json};\n`;
+        const base64 = btoa(unescape(encodeURIComponent(content)));
+
+        // 3. Commit
+        const commitRes = await fetch(api, {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: `Update products from admin panel [${new Date().toLocaleString()}]`,
+            content: base64,
+            sha: sha || undefined,
+            branch: branch,
+          }),
+        });
+
+        if (!commitRes.ok) {
+          const err = await commitRes.json();
+          throw new Error(err.message || "Commit failed");
+        }
+
+        const result = await commitRes.json();
+        status.textContent = `Published! Commit: ${result.commit.sha.slice(0, 7)}`;
+        status.className = "text-xs text-emerald-600 font-medium";
+        toast("Published to GitHub successfully!");
+        // Clear localStorage override so next load uses committed data
+        localStorage.removeItem("protech_products");
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+        status.className = "text-xs text-red-600";
+        toast("Publish failed: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.querySelector("span").textContent = "Publish Now";
+      }
+    }
+
+    // ----- Escape HTML for safe insertion -----
+    function esc(str) {
+      if (!str) return "";
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // ----- Init -----
+    loadData();
+    render();
+  </script>
+</body>
+</html>
